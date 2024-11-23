@@ -1,4 +1,6 @@
 import { OpenAI } from "openai"
+import { addServerMemory, memory } from "./memory"
+import { headerToString, parseHeader, requestToString } from "./message"
 
 export const client = new OpenAI({
     baseURL: "http://localhost:11434/v1/",
@@ -25,43 +27,20 @@ Content-Type: text/html; charset=utf-8
 </html>
 `
 
-export function parseHeader(text: string) {
-    const headers = new Headers()
-    const lines = text.split("\n")
-
-    for (const line of lines) {
-        if (line.includes("HTTP")) {
-            continue
-        }
-        if (line === "") {
-            break
-        }
-        const [key, value] = line.split(": ")
-        headers.set(key, value)
-    }
-    return headers
-}
-
-export function headerToString(headers: Headers) {
-    let text = ""
-    for (const [key, value] of headers) {
-        text += `${key}: ${value}\n`
-    }
-    return text
-}
-
 export async function handleRequest(req: Request) {
-    const body = await req.text()
-    const headers = headerToString(req.headers)
-    const a = await client.chat.completions.create({
+    const requestText = await requestToString(req)
+    const completion = await client.chat.completions.create({
         messages: [
             {
                 role: "system",
+
                 content: systemPrompt
             },
+            ...memory,
             {
                 role: "user",
-                content: `${headers}\n\n${body}`
+                name: "user",
+                content: requestText
             }
         ],
         model: "llama3.2:1b",
@@ -69,10 +48,11 @@ export async function handleRequest(req: Request) {
     })
     
     const decoder = new TextDecoder()
-    const stream = a.toReadableStream()
+    const stream = completion.toReadableStream()
 
     const reader = stream.getReader()
     let headerText = ""
+    let bodyText = ""
     let cache = ""
     let isHeaderEnd = false
 
@@ -95,9 +75,13 @@ export async function handleRequest(req: Request) {
             headerText += text
         }
     }
+
+    console.log({ headerText })
+    const headers = parseHeader(headerText)
     
     const bodyStream = new ReadableStream({
         start(controller) {
+            bodyText += cache
             controller.enqueue(cache)
         },
         async pull(controller) {
@@ -105,6 +89,8 @@ export async function handleRequest(req: Request) {
             if (done) {
                 controller.close()
                 console.log("done")
+
+                addServerMemory(bodyText, headerText)
             } else {
                 const content = decoder.decode(value)
                 const text = JSON.parse(content).choices[0].delta.content
@@ -112,6 +98,7 @@ export async function handleRequest(req: Request) {
                     process.stdout.write(text)
                 }
                 // console.log(text)
+                bodyText += text
                 controller.enqueue(text)
             }
         }
@@ -119,7 +106,7 @@ export async function handleRequest(req: Request) {
 
     console.log(headerText)
     return new Response(bodyStream, {
-        headers: parseHeader(headerText)
+        headers
     })
     // while (true) {
     //     const { done, value } = await reader.read()
