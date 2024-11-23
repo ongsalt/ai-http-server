@@ -73,31 +73,6 @@ Content-Type: text/html; charset=utf-8
 But if user is request for another route that is not /todo, you should try to create a valid response based on the input.
 For example, Google clone, it should return a google clone page. Facebook clone, it should return a facebook clone page. etc. Make it as real as possible and functional.`
 
-export function parseHeader(text: string) {
-    const headers = new Headers()
-    const lines = text.split("\n")
-
-    for (const line of lines) {
-        if (line.includes("HTTP")) {
-            continue
-        }
-        if (line === "") {
-            break
-        }
-        const [key, value] = line.split(": ")
-        headers.set(key, value)
-    }
-    return headers
-}
-
-export function headerToString(headers: Headers) {
-    let text = ""
-    for (const [key, value] of Object.entries(headers)) {
-        text += `${key}: ${value}\n`
-    }
-    return text
-}
-
 export async function handleRequest(req: Request) {
     const requestText = await requestToString(req)
     const completion = await client.chat.completions.create({
