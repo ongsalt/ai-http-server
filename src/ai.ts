@@ -3,8 +3,9 @@ import { addServerMemory, memory } from "./memory"
 import { headerToString, parseHeader, requestToString } from "./message"
 
 export const client = new OpenAI({
-    baseURL: "http://localhost:11434/v1/",
-    apiKey: "ignored"
+    baseURL: Bun.env.OPENAI_SERVER || "http://localhost:11434/v1/",
+    apiKey: Bun.env.OPENAI_API_KEY || "ignored",
+    fetch: Bun.fetch
 })
 
 export const systemPrompt = `you are an http server which serves a todo app, please response with what a todo app server would do,
@@ -43,10 +44,9 @@ export async function handleRequest(req: Request) {
                 content: requestText
             }
         ],
-        model: "llama3.2:1b",
+        model: Bun.env.MODEL || "text-davinci-003",
         stream: true,
     })
-    
     const decoder = new TextDecoder()
     const stream = completion.toReadableStream()
 
