@@ -17,7 +17,7 @@ export function parseHeader(text: string) {
 
 export function headerToString(headers: Headers) {
     let text = ""
-    for (const [key, value] of headers) {
+    for (const [key, value] of Object.entries(headers)) {
         text += `${key}: ${value}\n`
     }
     return text
