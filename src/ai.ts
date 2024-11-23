@@ -42,7 +42,17 @@ export function parseHeader(text: string) {
     return headers
 }
 
+export function headerToString(headers: Headers) {
+    let text = ""
+    for (const [key, value] of headers) {
+        text += `${key}: ${value}\n`
+    }
+    return text
+}
+
 export async function handleRequest(req: Request) {
+    const body = await req.text()
+    const headers = headerToString(req.headers)
     const a = await client.chat.completions.create({
         messages: [
             {
@@ -51,7 +61,7 @@ export async function handleRequest(req: Request) {
             },
             {
                 role: "user",
-                content: ""
+                content: `${headers}\n\n${body}`
             }
         ],
         model: "llama3.2:1b",
@@ -94,6 +104,7 @@ export async function handleRequest(req: Request) {
             const { done, value } = await reader.read()
             if (done) {
                 controller.close()
+                console.log("done")
             } else {
                 const content = decoder.decode(value)
                 const text = JSON.parse(content).choices[0].delta.content
