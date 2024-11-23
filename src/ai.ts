@@ -7,7 +7,7 @@ export const client = new OpenAI({
 
 export const systemPrompt = `you are an http server which serves a todo app, please response with what a todo app server would do,
 also please do not include any text other than the http reponse, Please return a html as you are not a json api server.
-you must use tailwind css for styling by including the cdn link in the head of the html document: " <script src="https://cdn.tailwindcss.com"></script>",
+you must use tailwind css for styling by INCLUDING the cdn link in the head of the html document: " <script src="https://cdn.tailwindcss.com"></script>",
 please be careful about content type and status code. The generated html should be in english or thai only. Do not generate PHP, USE ONLY HTML.
 
 # Example Response
@@ -108,8 +108,10 @@ export async function handleRequest(req: Request) {
             } else {
                 const content = decoder.decode(value)
                 const text = JSON.parse(content).choices[0].delta.content
+                if (text !== null) {
+                    process.stdout.write(text)
+                }
                 // console.log(text)
-                process.stdout.write(text)
                 controller.enqueue(text)
             }
         }
