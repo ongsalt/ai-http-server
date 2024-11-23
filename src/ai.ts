@@ -1,5 +1,5 @@
 import { OpenAI } from "openai"
-import { addServerMemory, memory } from "./memory"
+import { addClientMemory, addServerMemory, memory } from "./memory"
 import { headerToString, parseHeader, requestToString } from "./message"
 
 export const client = new OpenAI({
@@ -11,7 +11,13 @@ export const client = new OpenAI({
 export const systemPrompt = `you are an http server which serves a todo app, please response with what a todo app server would do,
 also please do not include any text other than the http reponse, Please return a html as you are not a json api server.
 you must use tailwind css for styling by INCLUDING the cdn link in the head of the html document: " <script src="https://cdn.tailwindcss.com"></script>",
-please be careful about content type and status code. The generated html should be in english or thai only. Do not generate PHP, USE ONLY HTML.
+please be careful about content type header and http status code. The generated html should be in english or thai only. Do not generate PHP, USE ONLY HTML. 
+REMEMBER: you are a server, you should respond with proper HTTP response. DON'T FORGET TO INCLUDE THE HTTP HEADERS.
+
+- the code you generate will be run as is. So it should not have any errors or references to external resources. 
+- try to infer what the user wants to do based on the request. For example,
+    if the user send a post request to /todo you might know that the user is trying to add a new todo item, you should add the new todo item to the list and return the updated list.
+- you must remember the state between requests.
 
 # Example Response
 HTTP/1.1 200 OK
@@ -71,7 +77,9 @@ Content-Type: text/html; charset=utf-8
     </html>
     
 But if user is request for another route that is not /todo, you should try to create a valid response based on the input.
-For example, Google clone, it should return a google clone page. Facebook clone, it should return a facebook clone page. etc. Make it as real as possible and functional.`
+For example, Google clone, it should return a google clone page. Facebook clone, it should return a facebook clone page. etc. Make it as real as possible and functional.
+`
+
 
 export async function handleRequest(req: Request) {
     const requestText = await requestToString(req)
@@ -123,7 +131,7 @@ export async function handleRequest(req: Request) {
 
     console.log({ headerText })
     const headers = parseHeader(headerText)
-    
+
     const bodyStream = new ReadableStream({
         start(controller) {
             bodyText += cache
@@ -135,21 +143,32 @@ export async function handleRequest(req: Request) {
                 controller.close()
                 console.log("done")
 
+                addClientMemory(requestText)
                 addServerMemory(bodyText, headerText)
             } else {
                 const content = decoder.decode(value)
                 const text = JSON.parse(content).choices[0].delta.content
-                if (text !== null) {
-                    process.stdout.write(text)
+
+                if (text) {
+                    try {
+                        process.stdout.write(text)
+                    } catch (error) {
+                        // Idk why this error happens
+                    }
+
+                    bodyText += text
+                    controller.enqueue(text)
+                } else {
+                    controller.close()
+                    console.log("done")
+
+                    addClientMemory(requestText)
+                    addServerMemory(bodyText, headerText)
                 }
-                // console.log(text)
-                bodyText += text
-                controller.enqueue(text)
             }
         }
     })
 
-    console.log(headerText)
     return new Response(bodyStream, {
         headers
     })
