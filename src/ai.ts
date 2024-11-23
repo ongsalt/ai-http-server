@@ -6,13 +6,43 @@ export const client = new OpenAI({
 })
 
 export const systemPrompt = `you are an http server which serves a todo app, please response with what a todo app server would do,
-also please do not include any text other than the http reponse,
-you can use tailwind css for styling by including the cdn link in the head of the html document: " <script src="https://cdn.tailwindcss.com"></script>",
-you can use htmx for dynamic html by including the cdn link in the head of the html document: "<script src="https://unpkg.com/htmx.org"></script>",
+also please do not include any text other than the http reponse, Please return a html as you are not a json api server.
+you must use tailwind css for styling by including the cdn link in the head of the html document: " <script src="https://cdn.tailwindcss.com"></script>",
+please be careful about content type and status code. The generated html should be in english or thai only. Do not generate PHP, USE ONLY HTML.
+
+# Example Response
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div class="p-4 bg-blue-500 text-white">Hello World</div>
+</body>
+</html>
 `
 
+export function parseHeader(text: string) {
+    const headers = new Headers()
+    const lines = text.split("\n")
+
+    for (const line of lines) {
+        if (line.includes("HTTP")) {
+            continue
+        }
+        if (line === "") {
+            break
+        }
+        const [key, value] = line.split(": ")
+        headers.set(key, value)
+    }
+    return headers
+}
+
 export async function handleRequest(req: Request) {
-    console.log(req)
     const a = await client.chat.completions.create({
         messages: [
             {
@@ -33,7 +63,7 @@ export async function handleRequest(req: Request) {
 
     const reader = stream.getReader()
     let headerText = ""
-
+    let cache = ""
     let isHeaderEnd = false
 
     while (true) {
@@ -44,47 +74,39 @@ export async function handleRequest(req: Request) {
         const content = decoder.decode(value)
         const text = JSON.parse(content).choices[0].delta.content
 
-        if (isHeaderEnd) {
-            // bodyText += text
-            break
-        } else {
-            headerText += text
-        }
-
         if (headerText.includes("\n\n")) {
             isHeaderEnd = true
         }
 
-        console.log(text)
+        if (isHeaderEnd) {
+            cache += text
+            break
+        } else {
+            headerText += text
+        }
     }
-
+    
     const bodyStream = new ReadableStream({
         start(controller) {
-            function push() {
-                reader.read().then(({ done, value }) => {
-                  // If there is no more data to read
-                  if (done) {
-                    console.log("done", done);
-                    controller.close();
-                    return;
-                  }
-
-                  const content = decoder.decode(value)
-                  const text = JSON.parse(content).choices[0].delta.content          
-
-                  controller.enqueue(text);
-                  // Check chunks by logging to the console
-                  console.log(text);
-                  push();
-                });
-              }
-      
-              push();      
+            controller.enqueue(cache)
         },
+        async pull(controller) {
+            const { done, value } = await reader.read()
+            if (done) {
+                controller.close()
+            } else {
+                const content = decoder.decode(value)
+                const text = JSON.parse(content).choices[0].delta.content
+                // console.log(text)
+                process.stdout.write(text)
+                controller.enqueue(text)
+            }
+        }
     })
 
+    console.log(headerText)
     return new Response(bodyStream, {
-        headers: {}
+        headers: parseHeader(headerText)
     })
     // while (true) {
     //     const { done, value } = await reader.read()
