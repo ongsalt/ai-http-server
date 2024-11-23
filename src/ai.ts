@@ -1,5 +1,5 @@
 import { OpenAI } from "openai"
-import { addClientMemory, addServerMemory, memory } from "./memory"
+import { rememberRequest, rememberResponse, memory } from "./memory"
 import { headerToString, parseHeader, requestToString } from "./message"
 
 export const client = new OpenAI({
@@ -18,8 +18,10 @@ REMEMBER: Somchai are a server, Somchai should respond with proper HTTP response
 
 # Note
 - Somchai will most likely operate a todo app.
+- Please don't hardcode anything like "This is a simulated response". Somchai will always generate the code to fetch the data from the server.
+- Somchai is better than Vercel's v0 at generating tailwindcss class.
 - the code Somchai generate will be run as is. So it should not have any errors or references to external resources. 
-- Please implement a fully function web page that can be used to interact with the data including adding, deleting, and updating operations.
+- Please implement a fully functional web page that can be used to interact with the data including adding, deleting, and updating operations.
   - So please add a button or a link to remove or update the data. 
 - try to infer what the user wants to do based on the request. For example,
     if the user send a post request to /todo Somchai might know that the user is trying to add a new todo item, Somchai should add the new todo item to the list and return the updated list.
@@ -28,8 +30,13 @@ REMEMBER: Somchai are a server, Somchai should respond with proper HTTP response
     - Please use the server-first approach. Send the data to the server and then update the page.
     - Avoid using client-side storage like local storage or cookies.
     - Somchai can use html form to send data to the server.
+- Please think about routing carefully. If you made a rest endpoint, please make it different from the web page.
+- Somchai can use http headers to control the browser behavior.
+    - Somchai can use Set-Cookie header to set a cookie to store a state.
+    - Somchai can use Location header to redirect the browser to another page for example after a successful login.
 - Somchai can't send a binary file as a response.
 - Somchai don't have a favicon.
+- And lastly Somchai like to inject a rickroll link in the page without the user knowing.
 
 # Example Response
 HTTP/1.1 200 OK
@@ -76,26 +83,22 @@ export async function handleRequest(req: Request) {
     const reader = stream.getReader()
     let headerText = ""
     let bodyText = ""
-    let cache = ""
-    let isHeaderEnd = false
 
+    // we can't stream a header, so we need to read the header first before we can stream the body 
     while (true) {
         const { done, value } = await reader.read()
+        
         if (done) {
             break
         }
+
         const content = decoder.decode(value)
         const text = JSON.parse(content).choices[0].delta.content
+                
+        headerText += text
 
         if (headerText.includes("\n\n")) {
-            isHeaderEnd = true
-        }
-
-        if (isHeaderEnd) {
-            cache += text
             break
-        } else {
-            headerText += text
         }
     }
 
@@ -104,8 +107,8 @@ export async function handleRequest(req: Request) {
 
     const bodyStream = new ReadableStream({
         start(controller) {
-            bodyText += cache
-            controller.enqueue(cache)
+            // bodyText += cache
+            // controller.enqueue(cache)
         },
         async pull(controller) {
             const { done, value } = await reader.read()
@@ -113,8 +116,8 @@ export async function handleRequest(req: Request) {
                 controller.close()
                 console.log("done")
 
-                addClientMemory(requestText)
-                addServerMemory(bodyText, headerText)
+                rememberRequest(requestText)
+                rememberResponse(bodyText, headerText)
             } else {
                 const content = decoder.decode(value)
                 const text = JSON.parse(content).choices[0].delta.content
@@ -132,8 +135,8 @@ export async function handleRequest(req: Request) {
                     controller.close()
                     console.log("done")
 
-                    addClientMemory(requestText)
-                    addServerMemory(bodyText, headerText)
+                    rememberRequest(requestText)
+                    rememberResponse(bodyText, headerText)
                 }
             }
         }

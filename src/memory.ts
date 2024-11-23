@@ -11,10 +11,10 @@ export function addMemory(message: ChatMessage) {
     console.log({ memory })
 }
 
-export function addServerMemory(bodyText: string, headersText: string) {
+export function rememberResponse(bodyText: string, headersText: string) {
     addMemory({ role: "user", name: "server", content: `${headersText}\n\n${bodyText}` })
 }
 
-export function addClientMemory(requestText: string) {
+export function rememberRequest(requestText: string) {
     addMemory({ role: "user", name: "client", content: requestText })
 }
