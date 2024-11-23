@@ -32,24 +32,58 @@ export async function handleRequest(req: Request) {
     const stream = a.toReadableStream()
 
     const reader = stream.getReader()
-    const headerText = []
+    let headerText = ""
+
+    let isHeaderEnd = false
 
     while (true) {
         const { done, value } = await reader.read()
         if (done) {
             break
         }
-        const text = decoder.decode(value)
-        headerText.push(text)
+        const content = decoder.decode(value)
+        const text = JSON.parse(content).choices[0].delta.content
 
-        if (headerText.join("").includes("\n\n")) {
+        if (isHeaderEnd) {
+            // bodyText += text
             break
+        } else {
+            headerText += text
         }
+
+        if (headerText.includes("\n\n")) {
+            isHeaderEnd = true
+        }
+
+        console.log(text)
     }
 
-    console.log(headerText.join(""))
+    const bodyStream = new ReadableStream({
+        start(controller) {
+            function push() {
+                reader.read().then(({ done, value }) => {
+                  // If there is no more data to read
+                  if (done) {
+                    console.log("done", done);
+                    controller.close();
+                    return;
+                  }
 
-    return new Response(stream, {
+                  const content = decoder.decode(value)
+                  const text = JSON.parse(content).choices[0].delta.content          
+
+                  controller.enqueue(text);
+                  // Check chunks by logging to the console
+                  console.log(text);
+                  push();
+                });
+              }
+      
+              push();      
+        },
+    })
+
+    return new Response(bodyStream, {
         headers: {}
     })
     // while (true) {
