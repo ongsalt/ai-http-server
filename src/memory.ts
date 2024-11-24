@@ -26,10 +26,10 @@ export function addMemory(message: ChatMessage) {
 
 export async function rememberResponse(bodyText: string, headersText: string) {
     addMemory({ role: "user", name: "server", content: `${headersText}\n\n${bodyText}` })
-    await appendFile("message.txt", JSON.stringify({ time: new Date(), type: "response", role: "user", name: "server", content: `${headersText}\n\n${bodyText}` }));
+    // await appendFile("message.txt", JSON.stringify({ time: new Date(), type: "response", role: "user", name: "server", content: `${headersText}\n\n${bodyText}` }));
 }
 
 export async function rememberRequest(requestText: string) {
     addMemory({ role: "user", name: "client", content: requestText })
-    await appendFile("message.txt", JSON.stringify({ time: new Date(), type: "request", role: "user", name: "client", content: requestText }));
+    // await appendFile("message.txt", JSON.stringify({ time: new Date(), type: "request", role: "user", name: "client", content: requestText }));
 }
