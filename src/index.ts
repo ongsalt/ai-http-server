@@ -8,7 +8,8 @@ function start() {
             // return handleRequest(req)
             return handleRequest2(req)
         },
-        port: Bun.env.PORT ?? 3000
+        port: Bun.env.PORT ?? 3000,
+        idleTimeout: 255,
     })
 }
 
