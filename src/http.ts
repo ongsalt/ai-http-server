@@ -10,6 +10,9 @@ export function parseHeader(text: string) {
             break
         }
         const [key, value] = line.split(": ")
+        if (!key.trim() || !value.trim()) {
+            continue
+        }
         headers.set(key, value)
     }
     return headers
