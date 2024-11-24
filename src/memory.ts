@@ -10,6 +10,13 @@ export function getMemory() {
     return memory
 }
 
+export function getClaudeMemory() {
+    return memory.map(it => ({ 
+        role: (it.role === "user" ? "user" : "assistant") as ("user" | "assistant"), 
+        content: it.content 
+    }))
+}
+
 export function addMemory(message: ChatMessage) {
     memory.push(message)
     console.log({ memory })

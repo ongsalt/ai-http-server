@@ -1,10 +1,16 @@
 import { OpenAI } from "openai"
-import { rememberRequest, rememberResponse, memory, getMemory } from "./memory"
+import Anthropic from '@anthropic-ai/sdk';
+import { rememberRequest, rememberResponse, memory, getMemory, getClaudeMemory } from "./memory"
 import { parseHeader, parseStatusCode, requestToString } from "./message"
 
 export const client = new OpenAI({
     baseURL: Bun.env.OPENAI_SERVER || "http://localhost:11434/v1/",
     apiKey: Bun.env.OPENAI_API_KEY || "ignored",
+    fetch: Bun.fetch
+})
+
+export const claudeClient = new Anthropic({
+    apiKey: Bun.env.ANTHROPIC_API_KEY,
     fetch: Bun.fetch
 })
 
@@ -129,6 +135,115 @@ export async function handleRequest(req: Request) {
                         process.stdout.write(text)
                     } catch (error) {
                         // Idk why this error happens
+                    }
+
+                    bodyText += text
+                    controller.enqueue(text)
+                } else {
+                    controller.close()
+                    console.log("done")
+
+                    rememberRequest(requestText)
+                    rememberResponse(bodyText, headerText)
+                }
+            }
+        }
+    })
+
+    return new Response(bodyStream, {
+        headers,
+        status,
+        statusText: message
+    })
+}
+
+export async function handleRequest2(req: Request) {
+    const requestText = await requestToString(req)
+    const completion = await claudeClient.messages.create({
+        messages: [
+            ...getClaudeMemory(),
+            {
+                role: "assistant",
+                content: systemPrompt
+            },
+            {
+                role: "user",
+                content: requestText
+            }
+        ],
+        model: Bun.env.CLAUDE_MODEL || "text-davinci-003",
+        stream: true,
+        max_tokens: 8192,
+    })
+    const decoder = new TextDecoder()
+    const stream = completion.toReadableStream()
+
+    const reader = stream.getReader()
+    let headerText = ""
+    let bodyText = ""
+    let leftOver = ""
+
+    console.log(requestText)
+
+    // we can't stream a header, so we need to read the header first before we can stream the body 
+    while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) {
+            break
+        }
+
+        const content = decoder.decode(value)
+        const a = JSON.parse(content)
+        // console.log(a)
+        
+        if (a.type != "content_block_delta") {
+            continue
+        }
+        
+        const text = a?.delta?.text ?? ""
+        headerText += text
+        console.log(text)
+
+        if (headerText.includes("\n\n")) {
+            [headerText, leftOver] = headerText.split("\n\n")
+            break
+        }
+    }
+
+    console.log(headerText)
+    const headers = parseHeader(headerText)
+    const { status, message } = parseStatusCode(headerText)
+
+    const bodyStream = new ReadableStream({
+        start(controller) {
+            bodyText += leftOver
+            process.stdout.write(leftOver)
+            controller.enqueue(leftOver)
+        },
+    
+        async pull(controller) {
+            const { done, value } = await reader.read()
+            if (done) {
+                controller.close()
+                console.log("done")
+                // console.log(bodyText)
+
+                rememberRequest(requestText)
+                rememberResponse(bodyText, headerText)
+            } else {
+                const content = decoder.decode(value)
+                const a = JSON.parse(content)
+                if (a.type != "content_block_delta") {
+                    return
+                }
+                
+                const text = a?.delta?.text
+        
+                if (text) {
+                    try {
+                        process.stdout.write(text)
+                    } catch (error) {
                     }
 
                     bodyText += text

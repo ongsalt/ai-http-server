@@ -26,7 +26,7 @@ export function headerToString(headers: Headers) {
 // Support only text body
 export async function requestToString(request: Request) {
     const body = await request.text()
-    return `${request.method} ${request.url} HTTP/1.1\n${headerToString(request.headers)}\n\n ${body}`
+    return `${request.method} ${request.url} HTTP/1.1\n${headerToString(request.headers)}\n\n ${body}`.trim()
 }
 
 export function parseStatusCode(text: string) {

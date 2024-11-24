@@ -1,11 +1,12 @@
-import { handleRequest } from "./ai"
+import { handleRequest, handleRequest2 } from "./ai"
 
 function start() {
     console.log(`Starting server at port ${Bun.env.PORT ?? 3000}`)
     Bun.serve({
         fetch: async (req) => {
             console.log("Request received")
-            return handleRequest(req)
+            // return handleRequest(req)
+            return handleRequest2(req)
         },
         port: Bun.env.PORT ?? 3000
     })
