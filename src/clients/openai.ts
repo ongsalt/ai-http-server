@@ -1,6 +1,6 @@
 import { OpenAI } from "openai";
 import { getMemory, rememberRequest, rememberResponse } from "../memory";
-import { parseHeader, parseStatusCode, requestToString } from "../message";
+import { parseHeader, parseStatusCode, requestToString } from "../http";
 import { systemPrompt } from "../ai";
 import type { RequestHandler } from ".";
 

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { RequestHandler } from ".";
-import { parseHeader, parseStatusCode, requestToString } from "../message";
+import { parseHeader, parseStatusCode, requestToString } from "../http";
 import { systemPrompt } from "../ai";
 import { getClaudeMemory, rememberRequest, rememberResponse } from "../memory";
 
