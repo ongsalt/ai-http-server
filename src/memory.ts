@@ -6,6 +6,10 @@ type ChatMessage = {
 
 export const memory: ChatMessage[] = []
 
+export function getMemory() {
+    return memory
+}
+
 export function addMemory(message: ChatMessage) {
     memory.push(message)
     console.log({ memory })

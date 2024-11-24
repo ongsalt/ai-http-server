@@ -1,6 +1,6 @@
 import { OpenAI } from "openai"
-import { rememberRequest, rememberResponse, memory } from "./memory"
-import { headerToString, parseHeader, requestToString } from "./message"
+import { rememberRequest, rememberResponse, memory, getMemory } from "./memory"
+import { parseHeader, parseStatusCode, requestToString } from "./message"
 
 export const client = new OpenAI({
     baseURL: Bun.env.OPENAI_SERVER || "http://localhost:11434/v1/",
@@ -63,7 +63,7 @@ export async function handleRequest(req: Request) {
     const requestText = await requestToString(req)
     const completion = await client.chat.completions.create({
         messages: [
-            ...memory,
+            ...getMemory(),
             {
                 role: "system",
 
@@ -105,6 +105,7 @@ export async function handleRequest(req: Request) {
 
     console.log({ headerText })
     const headers = parseHeader(headerText)
+    const { status, message } = parseStatusCode(headerText)
 
     const bodyStream = new ReadableStream({
         start(controller) {
@@ -144,15 +145,8 @@ export async function handleRequest(req: Request) {
     })
 
     return new Response(bodyStream, {
-        headers
+        headers,
+        status,
+        statusText: message
     })
-    // while (true) {
-    //     const { done, value } = await reader.read()
-    //     if (done) {
-    //         break
-    //     }
-    //     // parse to string
-    //     const content = JSON.parse(decoder.decode(value))
-    //     console.log(content.choices[0].delta.content)
-    // }
 }

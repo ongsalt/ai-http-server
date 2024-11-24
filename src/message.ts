@@ -28,3 +28,12 @@ export async function requestToString(request: Request) {
     const body = await request.text()
     return `${request.method} ${request.url} HTTP/1.1\n${headerToString(request.headers)}\n\n ${body}`
 }
+
+export function parseStatusCode(text: string) {
+    const lines = text.split("\n")
+    const [_, code, message] = lines[0].split(" ")
+    return { 
+        status: parseInt(code),
+        message 
+    }
+}
