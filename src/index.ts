@@ -7,7 +7,8 @@ function start() {
             console.log("Request received")
             return handleRequest(req)
         },
-        port: Bun.env.PORT ?? 3000
+        port: Bun.env.PORT ?? 3000,
+        idleTimeout: 255,
     })
 }
 
